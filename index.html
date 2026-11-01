@@ -4,20 +4,126 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Estação Meteorológica IoT</title>
-    <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; background: #f4f6f9; margin: 0; padding: 20px; color: #333; }
-        h1 { text-align: center; color: #2c3e50; }
-        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; max-width: 1200px; margin: 0 auto; }
-        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: #161b22;
+            --border-color: #30363d;
+            --text-main: #f0f6fc;
+            --text-muted: #8b949e;
+            --accent: #58a6ff;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1400px;
+            margin: 0 auto 20px auto;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 15px;
+        }
+        h1 { font-size: 1.5rem; margin: 0; }
+        .subtitle { color: var(--text-muted); font-size: 0.9rem; margin-top: 4px; }
+        .status-badge {
+            background: #1f242c;
+            border: 1px solid var(--border-color);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .dot { width: 8px; height: 8px; background-color: #3fb950; border-radius: 50%; }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .card-title { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 8px; }
+        .card-value { font-size: 2rem; font-weight: bold; }
+        .card-footer { color: var(--text-muted); font-size: 0.75rem; margin-top: 10px; }
+        
+        .config-section {
+            max-width: 1400px;
+            margin: 30px auto 0 auto;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-main);
+            margin-top: 5px;
+            box-sizing: border-box;
+        }
     </style>
 </head>
 <body>
 
-    <h1>Estação Meteorológica ESP32</h1>
-    
+    <header>
+        <div>
+            <h1>🌦️ Estação Meteorológica</h1>
+            <div class="subtitle">Monitoramento ambiental • ESP32 + DHT22 + BMP280 + MQ-135 + LDR</div>
+        </div>
+        <div class="status-badge">
+            <div class="dot"></div>
+            <span id="connection-status">Aguardando dados...</span>
+        </div>
+    </header>
+
     <div class="dashboard">
+        <!-- Cards de Leituras Atuais -->
+        <div class="card">
+            <div class="card-title">Temperatura Atual</div>
+            <div class="card-value" id="val-temp">-- °C</div>
+            <div class="card-footer" id="time-temp">Aguardando atualização...</div>
+        </div>
+        <div class="card">
+            <div class="card-title">Umidade Relativa</div>
+            <div class="card-value" id="val-hum">-- %</div>
+            <div class="card-footer" id="time-hum">Aguardando atualização...</div>
+        </div>
+        <div class="card">
+            <div class="card-title">Pressão Atmosférica</div>
+            <div class="card-value" id="val-press">-- hPa</div>
+            <div class="card-footer" id="time-press">Aguardando atualização...</div>
+        </div>
+        <div class="card">
+            <div class="card-title">Luminosidade (LDR)</div>
+            <div class="card-value" id="val-ldr">--</div>
+            <div class="card-footer" id="time-ldr">Aguardando atualização...</div>
+        </div>
+        <div class="card">
+            <div class="card-title">Qualidade do Ar (MQ-135)</div>
+            <div class="card-value" id="val-mq">--</div>
+            <div class="card-footer" id="time-mq">Aguardando atualização...</div>
+        </div>
+
+        <!-- Gráficos Históricos -->
         <div class="card"><canvas id="tempChart"></canvas></div>
         <div class="card"><canvas id="humChart"></canvas></div>
         <div class="card"><canvas id="pressChart"></canvas></div>
@@ -25,51 +131,98 @@
         <div class="card"><canvas id="mqChart"></canvas></div>
     </div>
 
+    <div class="config-section">
+        <h3>⚙️ Configuração da Conexão (ThingSpeak)</h3>
+        <p style="color: var(--text-muted); font-size: 0.85rem;">Certifique-se de que os Fields do seu canal correspondem: 1=Temp, 2=Umidade, 3=Pressão, 4=LDR, 5=MQ-135.</p>
+        <label>Channel ID</label>
+        <input type="text" id="input-channel" value="3561681">
+    </div>
+
     <script>
-        // Configuração genérica para buscar dados do ThingSpeak (ou sua API)
-        const channelID = 'SEU_CHANNEL_ID';
-        const url = `https://api.thingspeak.com/channels/${channelID}/feeds.json?results=20`;
-
-        async function fetchData() {
-            const response = await fetch(url);
-            const data = await response.json();
-            
-            const labels = data.feeds.map(feed => new Date(feed.created_at).toLocaleTimeString());
-            const temps = data.feeds.map(feed => feed.field1);
-            const hums = data.feeds.map(feed => feed.field2);
-            const press = data.feeds.map(feed => feed.field3);
-            const ldrVals = data.feeds.map(feed => feed.field4);
-            const mqVals = data.feeds.map(feed => feed.field5);
-
-            updateChart(tempChart, labels, temps, 'Temperatura (°C)', 'rgba(255, 99, 132, 1)');
-            updateChart(humChart, labels, hums, 'Umidade (%)', 'rgba(54, 162, 235, 1)');
-            updateChart(pressChart, labels, press, 'Pressão (hPa)', 'rgba(75, 192, 192, 1)');
-            updateChart(ldrChart, labels, ldrVals, 'Luminosidade (LDR)', 'rgba(255, 206, 86, 1)');
-            updateChart(mqChart, labels, mqVals, 'Qualidade do Ar (MQ-135)', 'rgba(153, 102, 255, 1)');
-        }
-
         function createChart(ctx, label, color) {
             return new Chart(ctx, {
                 type: 'line',
-                data: { labels: [], datasets: [{ label: label, data: [], borderColor: color, borderWidth: 2, fill: false }] },
-                options: { responsive: true, scales: { y: { beginAtZero: false } } }
+                data: { labels: [], datasets: [{ label: label, data: [], borderColor: color, backgroundColor: color.replace('1)', '0.1)') , borderWidth: 2, fill: true, tension: 0.3 }] },
+                options: { 
+                    responsive: true, 
+                    plugins: { legend: { labels: { color: '#f0f6fc' } } },
+                    scales: { 
+                        x: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' } },
+                        y: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' } }
+                    } 
+                }
             });
         }
 
-        function updateChart(chart, labels, data, label, color) {
-            chart.data.labels = labels;
-            chart.data.datasets[0].data = data;
-            chart.update();
+        const tempChart = createChart(document.getElementById('tempChart').getContext('2d'), 'Histórico de Temperatura (°C)', 'rgba(255, 99, 132, 1)');
+        const humChart = createChart(document.getElementById('humChart').getContext('2d'), 'Histórico de Umidade (%)', 'rgba(54, 162, 235, 1)');
+        const pressChart = createChart(document.getElementById('pressChart').getContext('2d'), 'Histórico de Pressão (hPa)', 'rgba(75, 192, 192, 1)');
+        const ldrChart = createChart(document.getElementById('ldrChart').getContext('2d'), 'Histórico de Luminosidade', 'rgba(255, 206, 86, 1)');
+        const mqChart = createChart(document.getElementById('mqChart').getContext('2d'), 'Histórico MQ-135 (Qualidade do Ar)', 'rgba(153, 102, 255, 1)');
+
+        async function fetchData() {
+            const channelID = document.getElementById('input-channel').value;
+            if (!channelID) return;
+            
+            const url = `https://api.thingspeak.com/channels/${channelID}/feeds.json?results=20`;
+
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                const feeds = data.feeds;
+
+                if (feeds && feeds.length > 0) {
+                    const latest = feeds[feeds.length - 1];
+                    const timeStr = new Date(latest.created_at).toLocaleTimeString();
+
+                    // Atualiza cards
+                    document.getElementById('val-temp').innerText = (latest.field1 ? Number(latest.field1).toFixed(1) : '0.0') + ' °C';
+                    document.getElementById('time-temp').innerText = 'Leitura recebida em ' + timeStr;
+
+                    document.getElementById('val-hum').innerText = (latest.field2 ? Number(latest.field2).toFixed(1) : '0.0') + ' %';
+                    document.getElementById('time-hum').innerText = 'Leitura recebida em ' + timeStr;
+
+                    document.getElementById('val-press').innerText = (latest.field3 ? Number(latest.field3).toFixed(1) : '0.0') + ' hPa';
+                    document.getElementById('time-press').innerText = 'Leitura recebida em ' + timeStr;
+
+                    document.getElementById('val-ldr').innerText = latest.field4 ? latest.field4 : '0';
+                    document.getElementById('time-ldr').innerText = 'Leitura recebida em ' + timeStr;
+
+                    document.getElementById('val-mq').innerText = latest.field5 ? latest.field5 : '0';
+                    document.getElementById('time-mq').innerText = 'Leitura recebida em ' + timeStr;
+
+                    document.getElementById('connection-status').innerText = 'ESP32 conectado (dados recebidos)';
+
+                    // Atualiza gráficos
+                    const labels = feeds.map(f => new Date(f.created_at).toLocaleTimeString());
+                    
+                    tempChart.data.labels = labels;
+                    tempChart.data.datasets[0].data = feeds.map(f => f.field1);
+                    tempChart.update();
+
+                    humChart.data.labels = labels;
+                    humChart.data.datasets[0].data = feeds.map(f => f.field2);
+                    humChart.update();
+
+                    pressChart.data.labels = labels;
+                    pressChart.data.datasets[0].data = feeds.map(f => f.field3);
+                    pressChart.update();
+
+                    ldrChart.data.labels = labels;
+                    ldrChart.data.datasets[0].data = feeds.map(f => f.field4);
+                    ldrChart.update();
+
+                    mqChart.data.labels = labels;
+                    mqChart.data.datasets[0].data = feeds.map(f => f.field5);
+                    mqChart.update();
+                }
+            } catch (error) {
+                console.error("Erro ao buscar dados:", error);
+                document.getElementById('connection-status').innerText = 'Erro ao conectar API';
+            }
         }
 
-        const tempChart = createChart(document.getElementById('tempChart').getContext('2d'), 'Temperatura (°C)', 'rgba(255, 99, 132, 1)');
-        const humChart = createChart(document.getElementById('humChart').getContext('2d'), 'Umidade (%)', 'rgba(54, 162, 235, 1)');
-        const pressChart = createChart(document.getElementById('pressChart').getContext('2d'), 'Pressão (hPa)', 'rgba(75, 192, 192, 1)');
-        const ldrChart = createChart(document.getElementById('ldrChart').getContext('2d'), 'Luminosidade (LDR)', 'rgba(255, 206, 86, 1)');
-        const mqChart = createChart(document.getElementById('mqChart').getContext('2d'), 'Qualidade do Ar (MQ-135)', 'rgba(153, 102, 255, 1)');
-
-        // Atualiza a cada 30 segundos
-        setInterval(fetchData, 30000);
+        setInterval(fetchData, 20000);
         fetchData();
     </script>
 </body>
