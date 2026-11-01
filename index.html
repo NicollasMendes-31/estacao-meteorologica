@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estação Meteorológica IoT</title>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f6f9; margin: 0; padding: 20px; color: #333; }
+        h1 { text-align: center; color: #2c3e50; }
+        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; max-width: 1200px; margin: 0 auto; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+
+    <h1>Estação Meteorológica ESP32</h1>
+    
+    <div class="dashboard">
+        <div class="card"><canvas id="tempChart"></canvas></div>
+        <div class="card"><canvas id="humChart"></canvas></div>
+        <div class="card"><canvas id="pressChart"></canvas></div>
+        <div class="card"><canvas id="ldrChart"></canvas></div>
+        <div class="card"><canvas id="mqChart"></canvas></div>
+    </div>
+
+    <script>
+        // Configuração genérica para buscar dados do ThingSpeak (ou sua API)
+        const channelID = 'SEU_CHANNEL_ID';
+        const url = `https://api.thingspeak.com/channels/${channelID}/feeds.json?results=20`;
+
+        async function fetchData() {
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            const labels = data.feeds.map(feed => new Date(feed.created_at).toLocaleTimeString());
+            const temps = data.feeds.map(feed => feed.field1);
+            const hums = data.feeds.map(feed => feed.field2);
+            const press = data.feeds.map(feed => feed.field3);
+            const ldrVals = data.feeds.map(feed => feed.field4);
+            const mqVals = data.feeds.map(feed => feed.field5);
+
+            updateChart(tempChart, labels, temps, 'Temperatura (°C)', 'rgba(255, 99, 132, 1)');
+            updateChart(humChart, labels, hums, 'Umidade (%)', 'rgba(54, 162, 235, 1)');
+            updateChart(pressChart, labels, press, 'Pressão (hPa)', 'rgba(75, 192, 192, 1)');
+            updateChart(ldrChart, labels, ldrVals, 'Luminosidade (LDR)', 'rgba(255, 206, 86, 1)');
+            updateChart(mqChart, labels, mqVals, 'Qualidade do Ar (MQ-135)', 'rgba(153, 102, 255, 1)');
+        }
+
+        function createChart(ctx, label, color) {
+            return new Chart(ctx, {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: label, data: [], borderColor: color, borderWidth: 2, fill: false }] },
+                options: { responsive: true, scales: { y: { beginAtZero: false } } }
+            });
+        }
+
+        function updateChart(chart, labels, data, label, color) {
+            chart.data.labels = labels;
+            chart.data.datasets[0].data = data;
+            chart.update();
+        }
+
+        const tempChart = createChart(document.getElementById('tempChart').getContext('2d'), 'Temperatura (°C)', 'rgba(255, 99, 132, 1)');
+        const humChart = createChart(document.getElementById('humChart').getContext('2d'), 'Umidade (%)', 'rgba(54, 162, 235, 1)');
+        const pressChart = createChart(document.getElementById('pressChart').getContext('2d'), 'Pressão (hPa)', 'rgba(75, 192, 192, 1)');
+        const ldrChart = createChart(document.getElementById('ldrChart').getContext('2d'), 'Luminosidade (LDR)', 'rgba(255, 206, 86, 1)');
+        const mqChart = createChart(document.getElementById('mqChart').getContext('2d'), 'Qualidade do Ar (MQ-135)', 'rgba(153, 102, 255, 1)');
+
+        // Atualiza a cada 30 segundos
+        setInterval(fetchData, 30000);
+        fetchData();
+    </script>
+</body>
+</html>
